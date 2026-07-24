@@ -1,0 +1,12 @@
+# Rust build output
+/target
+
+# large test map (regen/supply separately, keep out of history)
+cs_paris.bsp
+
+# perl scripts
+*.pl
+
+# text files (except the vanilla list, needed at compile time)
+*.txt
+!cs-vanilla-filelist.txt

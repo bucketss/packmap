@@ -1,0 +1,14 @@
+[package]
+name = "packmap"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "packmap"
+path = "packmap.rs"
+
+[dependencies]
+zip = "2"
+
+[build-dependencies]
+winresource = "0.1"
