@@ -10,3 +10,6 @@ cs_paris.bsp
 # text files (except the vanilla list, needed at compile time)
 *.txt
 !cs-vanilla-filelist.txt
+
+# release binary (published as a GitHub release asset)
+packmap.exe
