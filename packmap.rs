@@ -304,8 +304,7 @@ fn parse_entities(text: &str) -> Vec<HashMap<String, String>> {
 
         let mut entity: HashMap<String, String> = HashMap::new();
         let mut s = block;
-        loop {
-            let q1 = match s.find('"') { Some(i) => i, None => break };
+        while let Some(q1) = s.find('"') {
             s = &s[q1 + 1..];
             let q2 = match s.find('"') { Some(i) => i, None => break };
             let key = s[..q2].to_lowercase();
@@ -330,7 +329,7 @@ fn parse_entities(text: &str) -> Vec<HashMap<String, String>> {
 
 fn enqueue(path: &str, queue: &mut HashMap<String, String>) {
     let normalized = path.replace('\\', "/");
-    let normalized = normalized.trim_start_matches(|c: char| c == '/' || c == '\\');
+    let normalized = normalized.trim_start_matches(['/', '\\']);
     if normalized.is_empty() { return; }
     let has_ext = normalized.rfind('.').map(|dot| {
         let ext = &normalized[dot + 1..];
@@ -658,13 +657,11 @@ fn write_zip_inner(
             .filter(|r| !r.to_lowercase().ends_with(".nav"))
             .map(|r| format!("{}\n", r))
             .collect();
-        if !res_body.is_empty() {
-            let res_arc = format!("maps/{}.res", mapname);
-            zip.start_file(res_arc.as_str(), options)?;
-            zip.write_all(res_body.as_bytes())?;
-            println!("  + {:<55} [generated]", res_arc);
-            n_added += 1;
-        }
+        let res_arc = format!("maps/{}.res", mapname);
+        zip.start_file(res_arc.as_str(), options)?;
+        zip.write_all(res_body.as_bytes())?;
+        println!("  + {:<55} [generated]", res_arc);
+        n_added += 1;
     }
 
     zip.finish()?;
@@ -703,7 +700,7 @@ fn write_resource_list(
     vanilla: &HashSet<&str>,
     out_dir: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let txt_path = out_dir.join(format!("{}_resources.txt", mapname));
+    let res_path = out_dir.join(format!("{}.res", mapname));
 
     // companions we probe for but can't verify exist without server access
     let excluded: HashSet<String> = [
@@ -727,13 +724,12 @@ fn write_resource_list(
         needed.push(rel);
     }
 
-    let mut txt = File::create(&txt_path)?;
-    writeln!(txt, "maps/{}.bsp", mapname)?;
-    for r in &needed { writeln!(txt, "{}", r)?; }
+    let mut res = File::create(&res_path)?;
+    for r in &needed { writeln!(res, "{}", r)?; }
 
     println!("\n--- Summary ---");
     println!("  Resources: {} non-vanilla files listed", needed.len());
-    println!("  Output:    {}", txt_path.display());
+    println!("  Output:    {}", res_path.display());
 
     Ok(())
 }

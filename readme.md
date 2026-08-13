@@ -8,4 +8,4 @@ usage: packmap <mapname.bsp> [mapname2.bsp ...] [folder ...] [--out/-o output_di
 
 give it a folder and it'll offer to pack every bsp in there
 
-if the bsp isn't inside a server, it writes `mapname_resources.txt` listing everything the map needs instead
+if the bsp isn't inside a server, it writes `mapname.res` listing everything the map needs instead
