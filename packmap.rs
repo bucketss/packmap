@@ -33,7 +33,8 @@ struct BspInfo {
 // ============================================================
 
 fn usage() -> ! {
-    eprintln!("Usage: packmap [-o <dir>] <mapname.bsp> [mapname2.bsp ...] [folder ...]");
+    eprintln!("Usage: packmap [-r] [-o <dir>] <mapname.bsp> [mapname2.bsp ...] [folder ...]");
+    eprintln!("  -r, --res-only   write only a .res file, even when archiving is available");
     eprintln!("  -o, --out <dir>  write output here instead of next to the packmap binary");
     std::process::exit(1);
 }
@@ -45,11 +46,13 @@ fn main() {
     }
 
     let mut out_override: Option<PathBuf> = None;
+    let mut res_only = false;
     let mut paths: Vec<String> = Vec::new();
 
     let mut it = args.into_iter();
     while let Some(arg) = it.next() {
         match arg.as_str() {
+            "-r" | "--res-only" => res_only = true,
             "-o" | "--out" => match it.next() {
                 Some(dir) => out_override = Some(PathBuf::from(dir)),
                 None => {
@@ -85,7 +88,7 @@ fn main() {
 
     let mut all_ok = true;
     for arg in &paths {
-        if !process_path(Path::new(arg), &out_dir, &vanilla) {
+        if !process_path(Path::new(arg), &out_dir, &vanilla, res_only) {
             all_ok = false;
         }
     }
@@ -94,7 +97,7 @@ fn main() {
     }
 }
 
-fn process_path(path: &Path, out_dir: &Path, vanilla: &HashSet<&str>) -> bool {
+fn process_path(path: &Path, out_dir: &Path, vanilla: &HashSet<&str>, res_only: bool) -> bool {
     if path.is_dir() {
         let entries = match std::fs::read_dir(path) {
             Ok(e) => e,
@@ -123,7 +126,7 @@ fn process_path(path: &Path, out_dir: &Path, vanilla: &HashSet<&str>) -> bool {
         if answer.trim().eq_ignore_ascii_case("y") {
             let mut all_ok = true;
             for bsp in &bsps {
-                if !pack_bsp(bsp, out_dir, vanilla) {
+                if !pack_bsp(bsp, out_dir, vanilla, res_only) {
                     all_ok = false;
                 }
                 println!();
@@ -134,11 +137,11 @@ fn process_path(path: &Path, out_dir: &Path, vanilla: &HashSet<&str>) -> bool {
             true
         }
     } else {
-        pack_bsp(path, out_dir, vanilla)
+        pack_bsp(path, out_dir, vanilla, res_only)
     }
 }
 
-fn pack_bsp(bsp_path: &Path, out_dir: &Path, vanilla: &HashSet<&str>) -> bool {
+fn pack_bsp(bsp_path: &Path, out_dir: &Path, vanilla: &HashSet<&str>, res_only: bool) -> bool {
     if !bsp_path.is_file() {
         eprintln!("BSP not found: {}", bsp_path.display());
         return false;
@@ -175,7 +178,9 @@ fn pack_bsp(bsp_path: &Path, out_dir: &Path, vanilla: &HashSet<&str>) -> bool {
 
     println!("Map:  {}", mapname);
     println!("BSP:  {}", bsp_path.display());
-    if loose {
+    if res_only {
+        println!("Mode: resource list only\n");
+    } else if loose {
         println!("Mode: loose (resource list only)\n");
     } else {
         println!("Mode: server {} [{}]\n",
@@ -205,8 +210,15 @@ fn pack_bsp(bsp_path: &Path, out_dir: &Path, vanilla: &HashSet<&str>) -> bool {
     );
     println!("Collected {} candidate paths\n", queue.len());
 
-    let result = if loose {
-        write_resource_list(&mapname, &queue, vanilla, out_dir)
+    let result = if loose || res_only {
+        write_resource_list(
+            &mapname,
+            &queue,
+            vanilla,
+            out_dir,
+            if loose { None } else { server_root.as_deref() },
+            &search_dirs,
+        )
     } else {
         write_zip(
             bsp_path, &mapname, &queue, vanilla,
@@ -706,6 +718,8 @@ fn write_resource_list(
     queue: &HashMap<String, String>,
     vanilla: &HashSet<&str>,
     out_dir: &Path,
+    server_root: Option<&Path>,
+    search_dirs: &[String],
 ) -> Result<(), Box<dyn std::error::Error>> {
     let res_path = out_dir.join(format!("{}.res", mapname));
 
@@ -725,8 +739,13 @@ fn write_resource_list(
 
     for lc_rel in sorted_keys {
         if vanilla.contains(lc_rel.as_str()) { continue; }
-        if excluded.contains(lc_rel.as_str()) { continue; }
+        if server_root.is_none() && excluded.contains(lc_rel.as_str()) { continue; }
+        if lc_rel == &format!("maps/{}.nav", mapname).to_lowercase() { continue; }
+        if lc_rel == &format!("maps/{}.res", mapname).to_lowercase() { continue; }
         let rel = queue[lc_rel].clone();
+        if let Some(root) = server_root {
+            if find_on_server(&rel, root, search_dirs).is_none() { continue; }
+        }
         println!("  {}", rel);
         needed.push(rel);
     }
