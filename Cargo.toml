@@ -8,6 +8,7 @@ name = "packmap"
 path = "packmap.rs"
 
 [dependencies]
+time = { version = "0.3", features = ["formatting"] }
 zip = "2"
 
 [build-dependencies]
