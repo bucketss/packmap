@@ -164,7 +164,11 @@ fn pack_bsp(bsp_path: &Path, out_dir: &Path, vanilla: &HashSet<&str>, res_only: 
         .to_string();
     let server_root = game_dir.and_then(|p| p.parent()).map(|p| p.to_path_buf());
 
-    let loose = server_root.is_none() || !is_known_game_dir(&game_dir_name);
+    let in_maps_dir = maps_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.eq_ignore_ascii_case("maps"));
+    let loose = server_root.is_none() || game_dir_name.is_empty() || !in_maps_dir;
 
     let search_dirs: Vec<String> = if loose {
         vec![]
@@ -231,10 +235,6 @@ fn pack_bsp(bsp_path: &Path, out_dir: &Path, vanilla: &HashSet<&str>, res_only: 
         return false;
     }
     true
-}
-
-fn is_known_game_dir(name: &str) -> bool {
-    matches!(name, "cstrike" | "cstrike_downloads" | "czero" | "czero_downloads")
 }
 
 // ============================================================
